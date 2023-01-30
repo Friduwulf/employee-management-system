@@ -140,7 +140,6 @@ newRole = () => {
             {
                 name: "departmentName",
                 type: "rawlist",
-                message: "What department does this role belong to?",
                 choices: () => {
                     var depArr = [];
                     for (i=0; i< results.length; i++) {
@@ -148,7 +147,7 @@ newRole = () => {
                     }
                     return depArr;
                 },
-                message: "What is the name of the new department?"
+                message: "What is the name of the new role?"
             }
         ]).then((answer) => {
             connection.query(`SELECT id FROM department WHERE name = '${answer.departmentName}'`, (err, results) => {
@@ -187,10 +186,10 @@ newEmployee = () => {
             {
                 name: "lastName",
                 type: "input",
-                message: "What is the last name of the new employee?"
+                message: "What is the last name of the new employee?",
             },
             {
-                name: "role",
+                name: "roleName",
                 type: "rawlist",
                 choices: () => {
                     var roleArr = [];
@@ -199,47 +198,37 @@ newEmployee = () => {
                     }
                     return roleArr;
                 },
-                message: "what is their title?"
+                message: "What role is the new employee taking on?"
+            },
+            {
+                name: "managerName",
+                type: "rawlist",
+                choices: () => {
+                    var managerArr = [];
+                    for (i=0; i< results.length; i++) {
+                        managerArr.push(results[i].name)
+                    }
+                }
             }
         ]).then((answer) => {
-                    newEmp.first_name = answer.firstName;
-                    newEmp.last_name = answer.lastName;
-                    newEmp.role_id = answer.role;
-                    console.log(newEmp);
-                }
-            )
-            connection.query("SELECT * FROM employees WHERE manager_id IS NULL", (err, results) => {
+            connection.query(`SELECT id FROM role WHERE name = '${answer.roleName}'`, (err, results) => {
                 if(err) throw err;
-                inquirer
-                .prompt([
+                console.log(results[0].id);
+            connection.query("INSERT INTO role SET ?",
                     {
-                        name: "manager",
-                        type: "rawlist",
-                        choices: () => {
-                            var managerArr = [];
-                            for (i=0; i< results.length; i++) {
-                                manager.push(results[i].first_name + ' ' + results[i].last_name)
-                            }
-                            return managerArr;
-                        },
-                        message: "Who is their manager?"
+                        title: answer.role,
+                        salary: answer.salary,
+                        department_id: results[0].id
+                    },
+                    (err) => {
+                        if(err) throw err;
+                        console.log("-------------------------------------");
+                        console.log(answer.role + " added to roles list!");
+                        console.log("-------------------------------------");
+                        runAPP();
                     }
-                ]).then((answer) => {
-                    newEmp.manager = answer.manager;
-                    connection.query(
-                        "INSERT INTO employee SET ?",
-                        {
-                            first_name: newEmp.first_name,
-                            last_name: newEmp.last_name,
-                            role_id: newEmp.role_id,
-                            manager_id: newEmp.manager
-                        }
-                    )
-                })
-            })   
-            console.log("-------------------------------------");
-            console.log(answer.firstName + " added to employee list!");
-            console.log("-------------------------------------");
-            runAPP();
+                )
+            });
         });
+    })
 }
