@@ -2,8 +2,6 @@ const inquirer = require('inquirer');
 const table = require('console.table');
 const mysql = require('mysql2');
 
-var departmentID;
-
 var newEmp = {
     first_name: null,
     last_name: null,
@@ -155,26 +153,22 @@ newRole = () => {
         ]).then((answer) => {
             connection.query(`SELECT id FROM department WHERE name = '${answer.departmentName}'`, (err, results) => {
                 if(err) throw err;
-                console.table(results)
-                let departmentID = results;
-                console.log(departmentID[0].id);
-                return departmentID;
+                console.log(results[0].id);
+            connection.query("INSERT INTO role SET ?",
+                    {
+                        title: answer.role,
+                        salary: answer.salary,
+                        department_id: results[0].id
+                    },
+                    (err) => {
+                        if(err) throw err;
+                        console.log("-------------------------------------");
+                        console.log(answer.role + " added to roles list!");
+                        console.log("-------------------------------------");
+                        runAPP();
+                    }
+                )
             });
-            connection.query(
-                "INSERT INTO role SET ?",
-                {
-                    title: answer.role,
-                    salary: answer.salary,
-                    department_id: departmentID
-                },
-                (err) => {
-                    if(err) throw err;
-                    console.log("-------------------------------------");
-                    console.log(answer.role + " added to roles list!");
-                    console.log("-------------------------------------");
-                    runAPP();
-                }
-            )
         });
     })
 }
