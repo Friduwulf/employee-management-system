@@ -6,7 +6,7 @@ var newEmp = {
     first_name: null,
     last_name: null,
     role_id: null,
-    manager: null
+    manager_id: null
 };
 
 const connection = mysql.createConnection({
@@ -199,36 +199,63 @@ newEmployee = () => {
                     return roleArr;
                 },
                 message: "What role is the new employee taking on?"
-            },
+            }
+        ]).then((answer) => {
+            connection.query(`SELECT id FROM role WHERE title = '${answer.roleName}'`, (err, results) => {
+                if(err) throw err;
+                newEmp.first_name = answer.firstName;
+                newEmp.last_name = answer.lastName;
+                newEmp.role_id = results[0].id;
+                console.log(newEmp);
+                managerQuestion();
+            });
+        });
+    })
+}
+
+managerQuestion = () => {
+    connection.query("SELECT * FROM employee WHERE manager_id IS NULL", (err, results) => {
+        if(err) throw err;
+        inquirer
+        .prompt([
             {
                 name: "managerName",
                 type: "rawlist",
                 choices: () => {
                     var managerArr = [];
                     for (i=0; i< results.length; i++) {
-                        managerArr.push(results[i].name)
+                        managerArr.push(results[i].first_name + ' ' + results[i].last_name)
                     }
-                }
+                    return managerArr;
+                },
+                message: "What is the name of the manager of this new employee?"
             }
-        ]).then((answer) => {
-            connection.query(`SELECT id FROM role WHERE name = '${answer.roleName}'`, (err, results) => {
+        ]).then ((answer) => {
+            console.log(answer.managerName);
+            const managerSplit = answer.managerName.split(" ");
+            console.log(newEmp);
+            console.log(managerSplit[0]);
+            console.log(managerSplit[1]);
+            connection.query(`SELECT * FROM employee WHERE first_name = '${managerSplit[0]}' AND last_name = '${managerSplit[1]}'`, (err, results) => {
                 if(err) throw err;
-                console.log(results[0].id);
-            connection.query("INSERT INTO role SET ?",
-                    {
-                        title: answer.role,
-                        salary: answer.salary,
-                        department_id: results[0].id
-                    },
-                    (err) => {
-                        if(err) throw err;
-                        console.log("-------------------------------------");
-                        console.log(answer.role + " added to roles list!");
-                        console.log("-------------------------------------");
-                        runAPP();
-                    }
-                )
+                newEmp.manager_id = results[0].id;
+                console.log(newEmp);
+            connection.query("INSERT INTO employee SET ?",
+            {
+                first_name: newEmp.first_name,
+                last_name: newEmp.last_name,
+                role_id: newEmp.role_id,
+                manager_id: newEmp.manager_id
+            },
+            (err) => {
+                if(err) throw err;
+                console.log("-------------------------------------");
+                console.log(`${newEmp.first_name} ${newEmp.last_name} added to roles list!`);
+                console.log("-------------------------------------");
+                runAPP();
+            }
+            )
             });
         });
-    })
+    });
 }
