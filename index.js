@@ -40,8 +40,8 @@ function runAPP() {
                     "Change An Employee's Role", 
                     "Leave Application"]
             }
-        ]).then (function(res) {
-            switch(res.start) {
+        ]).then (function(result) {
+            switch(result.start) {
                 case "View Departments": viewDepartments();
                     break;
                 case "View Roles": viewRoles();
@@ -147,7 +147,7 @@ newRole = () => {
                     }
                     return depArr;
                 },
-                message: "What is the name of the new role?"
+                message: "What department does the role belong to?"
             }
         ]).then((answer) => {
             connection.query(`SELECT id FROM department WHERE name = '${answer.departmentName}'`, (err, results) => {
@@ -230,7 +230,7 @@ managerQuestion = () => {
                 },
                 message: "What is the name of the manager of this new employee?"
             }
-        ]).then ((answer) => {
+        ]).then((answer) => {
             console.log(answer.managerName);
             const managerSplit = answer.managerName.split(" ");
             console.log(newEmp);
@@ -255,6 +255,65 @@ managerQuestion = () => {
                 runAPP();
             }
             )
+            });
+        });
+    });
+}
+
+updateEmployee = () => {
+    connection.query("SELECT * FROM employee", (err, results) => {
+        if(err) throw err;
+        inquirer
+        .prompt([
+            {
+                name: "employee",
+                type: "rawlist",
+                choices: () => {
+                    var empArr = [];
+                    for (i=0; i< results.length; i++) {
+                        empArr.push(results[i].first_name + ' ' + results[i].last_name)
+                    }
+                    return empArr;
+                },
+                message: "What is the name of the employee you would like to update?"
+            }
+        ]).then((answer) => {
+            const nameSplit = answer.employee.split(" ");
+            newEmp.first_name = nameSplit[0];
+            newEmp.last_name = nameSplit[1];
+            connection.query("SELECT * FROM role", (err, results) => {
+                if(err) throw err;
+                inquirer
+                .prompt([
+                    {
+                        name: "roleName",
+                        type: "rawlist",
+                        choices: () => {
+                            var roleArr = [];
+                            for (i=0; i< results.length; i++) {
+                                roleArr.push(results[i].title)
+                            }
+                            return roleArr;
+                        },
+                        message: "What new role is the employee taking on?"
+                    }
+                ]).then((answer) => {
+                    connection.query(`SELECT id FROM role WHERE title = '${answer.roleName}'`, (err, results) => {
+                        if(err) throw err;
+                        newEmp.role_id = results[0].id;
+                        console.log(newEmp.role_id);
+                    })
+                    connection.query(`UPDATE employee SET role_id = '${newEmp.role_id}' WHERE first_name = '${newEmp.first_name}' AND last_name = '${newEmp.last_name}'`,
+                        (err) => {
+                            if(err) throw err;
+                            console.log(newEmp);
+                            console.log("-------------------------------------");
+                            console.log(`${newEmp.first_name} ${newEmp.last_name} has an updated role!`);
+                            console.log("-------------------------------------");
+                            runAPP();
+                        }
+                    )
+                });
             });
         });
     });
