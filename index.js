@@ -33,11 +33,14 @@ function runAPP() {
                 choices: [
                     "View Departments", 
                     "View Roles", 
-                    "View Employees", 
+                    "View Employees",
+                    "View Employees By Manager",
+                    "View Employees By Department",
                     "Add New Department", 
                     "Add New Role", 
                     "Add New Employee", 
-                    "Change An Employee's Role", 
+                    "Change An Employee's Role",
+                    "Change An Employee's Manager",
                     "Leave Application"]
             }
         ]).then (function(result) {
@@ -48,13 +51,19 @@ function runAPP() {
                     break;
                 case "View Employees": viewEmployees();
                     break;
+                case "View Employees By Manager": viewEmployeesByManager();
+                    break;
+                case "View Employees By Department": viewEmployeesByDepartment();
+                    break;             
                 case "Add New Department": newDepartment();
                     break;
                 case "Add New Role": newRole();
                     break;
                 case "Add New Employee": newEmployee();
                     break;
-                case "Change An Employee's Role": updateEmployee();
+                case "Change An Employee's Role": updateEmployeeRole();
+                    break;
+                case "Change An Employee's Manager": updateEmployeeManager();
                     break;
                 case "Leave Application": 
                     console.log("--------------------------------------------------------");
@@ -90,6 +99,67 @@ viewDepartments = () => {
         if(err) throw err;
         console.table(results);
         runAPP();
+    });
+}
+
+viewEmployeesByManager = () => {
+    connection.query("SELECT * FROM employee WHERE manager_id IS NULL", (err, results) => {
+        if(err) throw err;
+        inquirer
+        .prompt([
+            {
+                name: "manager",
+                type: "rawlist",
+                choices: () => {
+                    var managerArr = [];
+                    for (i=0; i< results.length; i++) {
+                        managerArr.push(results[i].first_name + ' ' + results[i].last_name)
+                    }
+                    managerArr.push('Managers');
+                    return managerArr;
+                },
+                message: "Which manager's team would you like to view?"
+            }
+        ]).then((answer) => {
+            const manager = answer.manager.split(" ");
+            connection.query(`Select * FROM employee WHERE first_name = '${manager[0]}' AND last_name = '${manager[1]}'`, (err, results) => {
+                if(err) throw err;
+                connection.query(`SELECT employee.id AS ID, employee.first_name AS First, employee.last_name AS Last FROM employee LEFT JOIN employee manager ON employee.manager_id = manager.id WHERE employee.manager_id = '${results[0].id}'`, (err, results) => {
+                    if(err) throw err;
+                    console.log(`----------Here are the employees working for ${answer.manager}----------`);
+                    console.table(results);
+                    runAPP();
+                })
+            })
+        });
+    });
+}
+
+viewEmployeesByDepartment = () => {
+    connection.query("SELECT * FROM department", (err, results) => {
+        if(err) throw err;
+        inquirer
+        .prompt([
+            {
+                name: "department",
+                type: "rawlist",
+                choices: () => {
+                    var depArr = [];
+                    for (i=0; i< results.length; i++) {
+                        depArr.push(results[i].name)
+                    }
+                    return depArr;
+                },
+                message: "Which department would you like to view?"
+            }
+        ]).then((answer) => {
+            connection.query(`SELECT employee.id AS ID, employee.first_name AS First, employee.last_name AS Last FROM employee LEFT JOIN role ON employee.role_id = role.id LEFT JOIN department ON role.department_id = department.id WHERE department.name = '${answer.department}'`, (err, results) => {
+                if(err) throw err;
+                console.log(`---------Here are the employees working in the ${answer.department}---------`);
+                console.table(results);
+                runAPP();
+            })
+        });
     });
 }
 
@@ -226,6 +296,7 @@ managerQuestion = () => {
                     for (i=0; i< results.length; i++) {
                         managerArr.push(results[i].first_name + ' ' + results[i].last_name)
                     }
+                    managerArr.push('None');
                     return managerArr;
                 },
                 message: "What is the name of the manager of this new employee?"
@@ -238,7 +309,9 @@ managerQuestion = () => {
             console.log(managerSplit[1]);
             connection.query(`SELECT * FROM employee WHERE first_name = '${managerSplit[0]}' AND last_name = '${managerSplit[1]}'`, (err, results) => {
                 if(err) throw err;
-                newEmp.manager_id = results[0].id;
+                if(answer.managerName !== 'None') {   
+                    newEmp.manager_id = results[0].id;
+                }
                 console.log(newEmp);
             connection.query("INSERT INTO employee SET ?",
             {
@@ -260,7 +333,7 @@ managerQuestion = () => {
     });
 }
 
-updateEmployee = () => {
+updateEmployeeRole = () => {
     connection.query("SELECT * FROM employee", (err, results) => {
         if(err) throw err;
         inquirer
@@ -302,19 +375,70 @@ updateEmployee = () => {
                         if(err) throw err;
                         newEmp.role_id = results[0].id;
                         console.log(newEmp.role_id);
+                        connection.query(`UPDATE employee SET role_id = '${newEmp.role_id}' WHERE first_name = '${newEmp.first_name}' AND last_name = '${newEmp.last_name}'`,
+                            (err) => {
+                                if(err) throw err;
+                                console.log(newEmp);
+                                console.log("-------------------------------------");
+                                console.log(`${newEmp.first_name} ${newEmp.last_name} has an updated role!`);
+                                console.log("-------------------------------------");
+                                runAPP();
+                            }
+                        )
                     })
-                    connection.query(`UPDATE employee SET role_id = '${newEmp.role_id}' WHERE first_name = '${newEmp.first_name}' AND last_name = '${newEmp.last_name}'`,
-                        (err) => {
-                            if(err) throw err;
-                            console.log(newEmp);
-                            console.log("-------------------------------------");
-                            console.log(`${newEmp.first_name} ${newEmp.last_name} has an updated role!`);
-                            console.log("-------------------------------------");
-                            runAPP();
-                        }
-                    )
                 });
             });
         });
     });
+}
+
+updateEmployeeManager = () => {
+    connection.query("SELECT * FROM employee", (err, results) => {
+        if(err) throw err;
+        inquirer
+        .prompt([
+            {
+                name: "employee",
+                type: "rawlist",
+                choices: () => {
+                    var empArr = [];
+                    for (i=0; i< results.length; i++) {
+                        empArr.push(results[i].first_name + ' ' + results[i].last_name)
+                    }
+                    return empArr;
+                },
+                message: "What is the name of the employee you would like to update?"
+            },
+            {
+                name: "managerName",
+                type: "rawlist",
+                choices: () => {
+                    var managerArr = [];
+                    for (i=0; i< results.length; i++) {
+                        managerArr.push(results[i].first_name + ' ' + results[i].last_name)
+                    }
+                    return managerArr;
+                },
+                message: "Who is the new manager of this employee?"
+            }
+        ]).then((answer) => {
+            const nameSplit = answer.employee.split(" ");
+            const managerSplit = answer.managerName.split(" ");
+            newEmp.first_name = nameSplit[0];
+            newEmp.last_name = nameSplit[1];
+            connection.query(`SELECT * FROM employee WHERE first_name = '${managerSplit[0]}' AND last_name = '${managerSplit[1]}'`, (err, results) => {
+                if(err) throw err;
+                const managerID = results[0].id;
+                connection.query(`UPDATE employee SET manager_id = '${managerID}' WHERE first_name = '${newEmp.first_name}' AND last_name = '${newEmp.last_name}'`,
+                        (err) => {
+                            if(err) throw err;
+                            console.log("-------------------------------------");
+                            console.log(`${newEmp.first_name} ${newEmp.last_name} has an updated manager!`);
+                            console.log("-------------------------------------");
+                            runAPP();
+                    }
+                )
+            })
+        })
+    })
 }
