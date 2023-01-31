@@ -36,6 +36,7 @@ function runAPP() {
                     "View Employees",
                     "View Employees By Manager",
                     "View Employees By Department",
+                    "View Department Utilized Budget",
                     "Add New Department", 
                     "Add New Role", 
                     "Add New Employee", 
@@ -54,7 +55,9 @@ function runAPP() {
                 case "View Employees By Manager": viewEmployeesByManager();
                     break;
                 case "View Employees By Department": viewEmployeesByDepartment();
-                    break;             
+                    break;    
+                case "View Department Utilized Budget": viewDepartmentBudget();
+                    break;            
                 case "Add New Department": newDepartment();
                     break;
                 case "Add New Role": newRole();
@@ -67,7 +70,7 @@ function runAPP() {
                     break;
                 case "Leave Application": 
                     console.log("--------------------------------------------------------");
-                    console.log("Goodbye!");
+                    console.log("                      Goodbye!");
                     console.log("--------------------------------------------------------");
                     break;
                 default: console.log("Selection is a Dead End");
@@ -79,6 +82,7 @@ viewEmployees = () => {
     connection.query("SELECT employee.id AS ID, employee.first_name AS First, employee.last_name AS Last, role.title AS Role, role.salary AS Salary, department.name AS Department, CONCAT(manager.first_name, ' ', manager.last_name) AS Manager FROM employee LEFT JOIN employee manager ON employee.manager_id = manager.id LEFT JOIN role ON employee.role_id = role.id LEFT JOIN department ON role.department_id = department.id",
     (err, results) => {
         if(err) throw err;
+        console.log("----------------Here are all of your employees!----------------", '\n');
         console.table(results);
         runAPP();
     });
@@ -88,6 +92,7 @@ viewRoles = () => {
     connection.query("SELECT role.id AS ID, role.title AS Title, role.salary AS Salary, department.name AS Department FROM role LEFT JOIN department ON role.department_id = department.id",
     (err, results) => {
         if(err) throw err;
+        console.log("----------------Here are all of your roles!----------------", '\n');
         console.table(results);
         runAPP();
     });
@@ -97,6 +102,7 @@ viewDepartments = () => {
     connection.query("SELECT department.id AS ID, department.name AS Name FROM department",
     (err, results) => {
         if(err) throw err;
+        console.log("----------------Here are all of your departments!----------------", '\n');
         console.table(results);
         runAPP();
     });
@@ -126,7 +132,7 @@ viewEmployeesByManager = () => {
                 if(err) throw err;
                 connection.query(`SELECT employee.id AS ID, employee.first_name AS First, employee.last_name AS Last FROM employee LEFT JOIN employee manager ON employee.manager_id = manager.id WHERE employee.manager_id = '${results[0].id}'`, (err, results) => {
                     if(err) throw err;
-                    console.log(`----------Here are the employees working for ${answer.manager}----------`);
+                    console.log(`----------Here are the employees working for ${answer.manager}----------`, '\n');
                     console.table(results);
                     runAPP();
                 })
@@ -155,10 +161,40 @@ viewEmployeesByDepartment = () => {
         ]).then((answer) => {
             connection.query(`SELECT employee.id AS ID, employee.first_name AS First, employee.last_name AS Last FROM employee LEFT JOIN role ON employee.role_id = role.id LEFT JOIN department ON role.department_id = department.id WHERE department.name = '${answer.department}'`, (err, results) => {
                 if(err) throw err;
-                console.log(`---------Here are the employees working in the ${answer.department}---------`);
+                console.log(`---------Here are the employees working in the ${answer.department}---------`, '\n');
                 console.table(results);
                 runAPP();
             })
+        });
+    });
+}
+
+viewDepartmentBudget = () => {
+    connection.query("SELECT * FROM department", (err, results) => {
+        inquirer
+        .prompt([
+            {
+                name: "department",
+                type: "rawlist",
+                choices: () => {
+                    const depArr = [];
+                    for (i=0; i< results.length; i++) {
+                        depArr.push(results[i].name);
+                    }
+                    return depArr;
+                },
+                message: "Which which department would you like to see the budget of?"
+            }
+        ]).then((answer) => {
+            connection.query(`SELECT * FROM department WHERE department.name = '${answer.department}'`, (err, results) => {
+                if(err) throw err;
+                connection.query(`SELECT SUM(salary) AS Salaries FROM role WHERE department_id = '${results[0].id}'`, (err, results) => {
+                    if(err) throw err;
+                    console.log(`The total budget utilized by the ${answer.department} is:`, '\n');
+                    console.table(results);
+                    runAPP();
+                });
+            });
         });
     });
 }
@@ -276,7 +312,6 @@ newEmployee = () => {
                 newEmp.first_name = answer.firstName;
                 newEmp.last_name = answer.lastName;
                 newEmp.role_id = results[0].id;
-                console.log(newEmp);
                 managerQuestion();
             });
         });
@@ -302,17 +337,12 @@ managerQuestion = () => {
                 message: "What is the name of the manager of this new employee?"
             }
         ]).then((answer) => {
-            console.log(answer.managerName);
             const managerSplit = answer.managerName.split(" ");
-            console.log(newEmp);
-            console.log(managerSplit[0]);
-            console.log(managerSplit[1]);
             connection.query(`SELECT * FROM employee WHERE first_name = '${managerSplit[0]}' AND last_name = '${managerSplit[1]}'`, (err, results) => {
                 if(err) throw err;
                 if(answer.managerName !== 'None') {   
                     newEmp.manager_id = results[0].id;
                 }
-                console.log(newEmp);
             connection.query("INSERT INTO employee SET ?",
             {
                 first_name: newEmp.first_name,
@@ -374,11 +404,9 @@ updateEmployeeRole = () => {
                     connection.query(`SELECT id FROM role WHERE title = '${answer.roleName}'`, (err, results) => {
                         if(err) throw err;
                         newEmp.role_id = results[0].id;
-                        console.log(newEmp.role_id);
                         connection.query(`UPDATE employee SET role_id = '${newEmp.role_id}' WHERE first_name = '${newEmp.first_name}' AND last_name = '${newEmp.last_name}'`,
                             (err) => {
                                 if(err) throw err;
-                                console.log(newEmp);
                                 console.log("-------------------------------------");
                                 console.log(`${newEmp.first_name} ${newEmp.last_name} has an updated role!`);
                                 console.log("-------------------------------------");
